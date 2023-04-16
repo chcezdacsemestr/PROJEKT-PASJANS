@@ -1,0 +1,501 @@
+#include<iostream>
+#include<vector> 
+#include<queue> 
+#include<stack> 
+#include<thread> 
+#include<random>
+#include<algorithm>
+#include<iomanip>
+
+
+using namespace std;
+
+
+enum Kolor { h, s, d, c };
+
+
+
+class karta {
+private:
+    char wartosc;
+    Kolor kolor;
+    bool odkryta;
+
+public:
+    karta(char w, Kolor k) :wartosc(w), kolor(k), odkryta(true) {}
+
+    int daj_wartosc() const { return wartosc; }
+    Kolor daj_kolor() const { return kolor; }
+    bool czy_odkryta() const { return odkryta; }
+
+    void ustaw_odkryta(bool nowa)
+    {
+        odkryta = nowa;
+    }
+    friend ostream& operator << (ostream& o, karta k);
+    friend istream& operator >> (istream& i, karta& k);
+
+};
+
+ostream& operator << (ostream& o, karta k)
+{
+
+    switch (k.daj_wartosc())
+    {
+    case 1:
+        o << " A";
+        break;
+
+    case 11:
+        o << " J";
+        break;
+
+    case 12:
+        o << " Q";
+        break;
+
+    case 13:
+        o << " K";
+        break;
+
+    default:
+        o << setw(2) << k.daj_wartosc();
+        break;
+    }
+
+    switch (k.daj_kolor())
+    {
+    case h:
+        o << "h";
+        break;
+    case d:
+        o << "d";
+        break;
+    case c:
+        o << "c";
+        break;
+    case s:
+        o << "s";
+        break;
+    default:
+        break;
+    }
+    return o;
+}
+
+
+istream& operator >>(istream& i, karta& k)
+{
+    int wartosc = 0;
+    char kolor = '\0';
+
+    i >> wartosc;
+
+    if (!i)
+    {
+        i.clear();
+        char wartoscznak = '\0';
+        i >> wartoscznak;
+
+        switch (wartoscznak)
+        {
+        case 'A':
+            k.wartosc = 1;
+            break;
+
+        case 'J':
+            k.wartosc = 11;
+            break;
+
+        case 'Q':
+            k.wartosc = 12;
+            break;
+
+        case 'K':
+            k.wartosc = 13;
+            break;
+
+        default:
+            return i;
+        }
+
+
+    }
+    else if (wartosc > 1 && wartosc <= 10)
+        k.wartosc = wartosc;
+    else return i;
+
+    i >> kolor;
+
+
+
+    if (kolor == 'h' || kolor == 's' || kolor == 'd' || kolor == 'c')
+    {
+
+
+        switch (kolor)
+        {
+        case 'h':
+            k.kolor = h;
+            break;
+        case 'd':
+            k.kolor = d;
+            break;
+        case 'c':
+            k.kolor = c;
+            break;
+        case 's':
+            k.kolor = s;
+            break;
+        default:
+            break;
+        }
+
+    }
+    return i;
+}
+
+class plansza
+{
+    deque<karta> talia;
+    vector <vector<karta>> kolumny; 
+    vector <stack<karta>> stosy;
+    void stworz_talie()
+    {
+        for (int i = 0; i < 52; i++) {
+            talia.push_back(karta(i % 13 + 1, static_cast<Kolor>(i / 13)));
+        }
+    }
+
+    void tasowanie()
+    {
+        vector <karta> karty;
+        while (!talia.empty())
+        {
+            karty.push_back(talia.front());
+            talia.pop_front();
+        }
+
+        shuffle(karty.begin(), karty.end(), default_random_engine(time(nullptr)));
+
+        for (const auto& karta : karty)
+        {
+            talia.push_back(karta);
+        }
+
+
+
+    }
+
+    void rozklad()
+    {
+        for (unsigned int i = 0; i < kolumny.size(); i++)
+        {
+            for (unsigned int j = 0; j <= i; j++)
+            {
+                kolumny[i].push_back(talia.front());
+                talia.pop_front();
+                kolumny[i][j].ustaw_odkryta(false);
+            }
+            kolumny[i].back().ustaw_odkryta(true);
+        }
+
+    }
+
+
+
+
+    bool talia_stos(int dokad, karta k)
+    {
+
+        if (stosy[dokad].empty())
+        {
+            if (k.daj_wartosc() != 1)
+                return false;
+        }
+
+
+        else
+        {
+            if (!(stosy[dokad].top().daj_kolor() == k.daj_kolor() && stosy[dokad].top().daj_wartosc() == k.daj_wartosc() - 1))
+                return false;
+        }
+
+        for (int i = 0; i < talia.size() && i < 3; i++)
+        {
+            if (k.daj_kolor() == talia[i].daj_kolor() && k.daj_wartosc() == talia[i].daj_wartosc())
+            {
+
+                stosy[dokad].push(k);
+                talia.erase(talia.begin() + i);
+                return true;
+
+            }
+
+        }
+        return false;
+
+
+    }
+
+
+    bool talia_kolumna(int dokad, karta k)
+    {
+
+        if (kolumny[dokad].empty())
+        {
+            if (k.daj_wartosc() != 13)
+                return false;
+        }
+
+        else
+        {
+            if (!(kolumny[dokad].back().daj_kolor() % 2 != k.daj_kolor() % 2 && kolumny[dokad].back().daj_wartosc() == k.daj_wartosc() + 1))
+                return false;
+        }
+
+        for (int i = 0; i < talia.size() && i < 3; i++)
+        {
+            if (k.daj_kolor() == talia[i].daj_kolor() && k.daj_wartosc() == talia[i].daj_wartosc())
+            {
+
+                kolumny[dokad].push_back(k);
+                talia.erase(talia.begin() + i);
+                return true;
+
+            }
+
+        }
+        return false;
+    }
+
+
+    bool stos_kolumna(int skad, int dokad, karta k)
+    {
+
+
+        if (kolumny[dokad].empty())
+        {
+            if (k.daj_wartosc() != 13)
+                return false;
+        }
+
+        else
+        {
+            if (!(kolumny[dokad].back().daj_kolor() % 2 != k.daj_kolor() % 2 && kolumny[dokad].back().daj_wartosc() == k.daj_wartosc() + 1))
+                return false;
+        }
+
+        if (stosy[skad].empty() || stosy[skad].top().daj_wartosc() != k.daj_wartosc() || stosy[skad].top().daj_kolor() != k.daj_kolor())
+            return false;
+
+        stosy[skad].pop();
+        kolumny[dokad].push_back(k);
+
+
+        return true;
+    }
+
+
+    bool kolumna_stos(int skad, int dokad, karta k)
+    {
+
+        if (stosy[dokad].empty())
+        {
+            if (k.daj_wartosc() != 1)
+                return false;
+        }
+
+        else
+        {
+            if (!(stosy[dokad].top().daj_kolor() == k.daj_kolor() && stosy[dokad].top().daj_wartosc() == k.daj_wartosc() - 1))
+                return false;
+        }
+        if (kolumny[skad].empty() || kolumny[skad].back().daj_wartosc() != k.daj_wartosc() || kolumny[skad].back().daj_kolor() != k.daj_kolor())
+            return false;
+
+
+        kolumny[skad].erase(kolumny[skad].end() - 1);
+        if (!kolumny[skad].empty())
+            kolumny[skad].back().ustaw_odkryta(true);
+        stosy[dokad].push(k);
+
+
+
+        return true;
+    }
+
+
+
+    bool kolumna_kolumna(int skad, int dokad, karta k)
+    {
+        if (kolumny[dokad].empty())
+        {
+            if (k.daj_wartosc() != 13)
+                return false;
+        }
+
+        else
+        {
+            if (!(kolumny[dokad].back().daj_kolor() % 2 != k.daj_kolor() % 2 && kolumny[dokad].back().daj_wartosc() == k.daj_wartosc() + 1))
+                return false;
+        }
+
+        int i;
+        for (i = kolumny[skad].size() - 1; i >= 0; i--)
+        {
+            if (!kolumny[skad][i].czy_odkryta())
+                return false;
+
+            if (k.daj_kolor() == kolumny[skad][i].daj_kolor() && k.daj_wartosc() == kolumny[skad][i].daj_wartosc())
+            {
+
+                kolumny[dokad].insert(kolumny[dokad].end(), kolumny[skad].begin() + i, kolumny[skad].end());
+
+                kolumny[skad].erase(kolumny[skad].begin() + i, kolumny[skad].end());
+                if (!kolumny[skad].empty())
+                    kolumny[skad].back().ustaw_odkryta(true);
+
+                return true;
+
+            }
+        }
+
+
+        return false;
+    }
+
+    friend ostream& operator << (ostream& o, const plansza& p);
+
+public:
+    plansza() :kolumny(7), stosy(4)
+    {
+
+        stworz_talie();
+        tasowanie();
+        rozklad();
+
+    }
+
+
+    bool ruch(int skad, int dokad, karta k)
+    {
+
+        if (skad > 11 || dokad > 11 || skad < 0 || dokad < 0)
+            return false;
+
+        if (dokad == 0)
+            return false;
+
+        if (dokad >= 8 && skad >= 8)
+            return false;
+
+        if (skad == 0 && dokad >= 8)
+            return talia_stos(dokad - 8, k);
+
+        if (skad == 0) 
+            return talia_kolumna(dokad - 1, k);
+
+        if (skad >= 8) 
+            return stos_kolumna(skad - 8, dokad - 1, k);
+
+
+        if (dokad >= 8)
+            return kolumna_stos(skad - 1, dokad - 8, k);
+
+
+
+        return kolumna_kolumna(skad - 1, dokad - 1, k);
+
+    }
+
+
+};
+
+ostream& operator << (ostream& o, const plansza& p)
+{
+    for (int i = 0; i < 60; i++)
+    {
+        o << '-';
+    }
+    o << endl;
+
+    for (int i = 0; i < 3 && i < p.talia.size(); i++)
+    {
+        o << p.talia[i] << ' ';
+    }
+    for (int i = 0; i < 30; i++)
+    {
+        o << ' ';
+    }
+    for (int i = 0; i < 4; i++)
+    {
+        if (p.stosy[i].empty())
+        {
+            o << "  0";
+        }
+        else
+        {
+            o << p.stosy[i].top() << " ";
+        }
+    }
+
+    o << endl;
+
+    for (int i = 0; i < 60; i++)
+    {
+        o << '-';
+    }
+
+    o << endl;
+
+    int najw = 0;
+    for (int i = 0; i < 7; i++)
+    {
+        if (p.kolumny[i].size() > najw)
+            najw = p.kolumny[i].size();
+    }
+
+    for (int j = 0; j < najw; j++)
+    {
+        o << '|';
+        for (int i = 0; i < 7; i++)
+        {
+
+            if (j >= p.kolumny[i].size())
+                o << "       |";
+            else if (p.kolumny[i][j].czy_odkryta())
+                o << "  " << p.kolumny[i][j] << "  |";
+            else
+                o << "  ===  |";
+        }
+        o << endl;
+
+    }
+    return o;
+}
+
+
+
+int main()
+{
+    int skad, dokad;
+    karta testowa(1, h);
+    plansza test;
+
+
+    cout << test;
+    for (;;)
+    {
+
+        cin >> skad >> testowa >> dokad;
+        if (!cin)
+            break;
+
+        test.ruch(skad, dokad, testowa);
+        cout << test;
+
+    }
+
+    return 0;
+}
